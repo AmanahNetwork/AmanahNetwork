@@ -1,0 +1,71 @@
+:root {
+    --bg-dark: #0f172a;
+    --bg-card: rgba(30, 41, 59, 0.6);
+    --teal: #0891b2;
+    --gold: #f59e0b;
+    --text-main: #f8fafc;
+    --text-dim: #94a3b8;
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+    margin: 0; font-family: 'Inter', sans-serif;
+    background: radial-gradient(circle at top right, #1e293b, #0f172a);
+    color: var(--text-main); min-height: 100vh; overflow-x: hidden;
+}
+
+nav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 15px 8%; background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border);
+    position: sticky; top: 0; z-index: 1000;
+}
+
+.logo-container { min-width: 280px; }
+
+.nav-links a {
+    text-decoration: none; color: var(--text-dim); margin-left: 30px;
+    font-weight: 600; transition: 0.3s;
+}
+
+.nav-links a:hover, .nav-links a.active { color: var(--gold); }
+
+.glass-card {
+    background: var(--bg-card); backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border); border-radius: 24px;
+    padding: 40px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+}
+
+.section-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px; margin-top: 60px;
+}
+
+.feature-box {
+    background: rgba(255, 255, 255, 0.03); padding: 30px;
+    border-radius: 18px; border: 1px solid var(--glass-border);
+}
+
+input {
+    width: 100%; padding: 14px; margin: 10px 0; border-radius: 12px;
+    background: rgba(15, 23, 42, 0.5); border: 1px solid var(--glass-border);
+    color: white; box-sizing: border-box;
+}
+
+@keyframes glowPulse {
+    0% { box-shadow: 0 0 5px var(--teal); transform: scale(1); }
+    50% { box-shadow: 0 0 20px var(--teal); transform: scale(1.02); }
+    100% { box-shadow: 0 0 5px var(--teal); transform: scale(1); }
+}
+
+.btn-primary {
+    width: 100%; padding: 16px; background: linear-gradient(135deg, var(--teal), #0e7490);
+    color: white; border: none; border-radius: 12px; font-weight: 700;
+    cursor: pointer; animation: glowPulse 2s infinite ease-in-out; margin-top: 20px;
+}
+
+.stats-bar { display: flex; justify-content: space-around; align-items: center; margin-bottom: 50px; border-top: 2px solid var(--teal) !important; }
+.stat-value { font-size: 2.8rem; color: var(--gold); margin: 5px 0; font-weight: 800; }
+.blurred-info { filter: blur(8px); background: rgba(255,255,255,0.05); color: transparent; border-radius: 4px; padding: 0 5px; }
+
+.main-footer { margin-top: 100px; padding: 60px 8%; background: #070b14; border-top: 1px solid var(--glass-border); text-align: left; }
