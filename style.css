@@ -1,3 +1,12 @@
+/* ============================================================
+   1. UNIVERSAL RESET & MODERN DEFAULTS
+   ============================================================ */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
 :root {
     --bg-dark: #0f172a;
     --bg-card: rgba(30, 41, 59, 0.6);
@@ -6,50 +15,166 @@
     --text-main: #f8fafc;
     --text-dim: #94a3b8;
     --glass-border: rgba(255, 255, 255, 0.1);
+    --container-width: 90%;
+    --max-width: 1200px;
+}
+
+html {
+    font-size: 100%; 
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
-    margin: 0; font-family: 'Inter', sans-serif;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
     background: radial-gradient(circle at top right, #1e293b, #0f172a);
-    color: var(--text-main); min-height: 100vh; overflow-x: hidden;
+    color: var(--text-main);
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden; /* Prevents mobile side-scrolling */
 }
 
+/* ============================================================
+   2. GLOBAL LAYOUT COMPONENTS
+   ============================================================ */
+.container, .main-content {
+    width: var(--container-width);
+    max-width: var(--max-width);
+    margin: 0 auto;
+}
+
+/* SMART MEDIA HANDLING */
+img, video, svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+/* ============================================================
+   3. NAVIGATION (STICKY & RESPONSIVE)
+   ============================================================ */
 nav {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 15px 8%; background: rgba(15, 23, 42, 0.9);
-    backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border);
-    position: sticky; top: 0; z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5%; /* Adjusted for better mobile spacing */
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--glass-border);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
-.logo-container { min-width: 280px; }
+.logo-container { 
+    min-width: fit-content; 
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+}
 
 .nav-links a {
-    text-decoration: none; color: var(--text-dim); margin-left: 30px;
-    font-weight: 600; transition: 0.3s;
+    text-decoration: none;
+    color: var(--text-dim);
+    margin-left: 20px;
+    font-weight: 600;
+    transition: 0.3s;
+    font-size: clamp(0.9rem, 1.5vw, 1rem); /* Fluid font size */
 }
 
-.nav-links a:hover, .nav-links a.active { color: var(--gold); }
+.nav-links a:hover, .nav-links a.active { 
+    color: var(--gold); 
+}
 
+/* ============================================================
+   4. GLASS-MORPHISM COMPONENTS
+   ============================================================ */
 .glass-card {
-    background: var(--bg-card); backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border); border-radius: 24px;
-    padding: 40px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: clamp(20px, 5vw, 40px); /* Padding shrinks on mobile */
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    width: 100%;
 }
 
 .section-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 30px; margin-top: 60px;
+    display: grid;
+    /* This automatically stacks cards on mobile and grids them on desktop */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+    margin-top: 40px;
 }
 
 .feature-box {
-    background: rgba(255, 255, 255, 0.03); padding: 30px;
-    border-radius: 18px; border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 30px;
+    border-radius: 18px;
+    border: 1px solid var(--glass-border);
+    transition: transform 0.3s ease;
 }
 
+.feature-box:hover {
+    transform: translateY(-5px);
+}
+
+/* ============================================================
+   5. STATS & INTERACTIVE ELEMENTS
+   ============================================================ */
+.stats-bar { 
+    display: flex; 
+    flex-wrap: wrap; /* Allows wrapping on small screens */
+    justify-content: space-around; 
+    align-items: center; 
+    margin-bottom: 50px; 
+    padding: 20px 0;
+    border-top: 2px solid var(--teal) !important; 
+}
+
+.stat-item {
+    text-align: center;
+    padding: 10px;
+    flex: 1 1 200px; /* Base size of 200px, but grows/shrinks */
+}
+
+.stat-value { 
+    font-size: clamp(1.8rem, 5vw, 2.8rem); /* Massive on desktop, readable on mobile */
+    color: var(--gold); 
+    margin: 5px 0; 
+    font-weight: 800; 
+}
+
+.blurred-info { 
+    filter: blur(8px); 
+    background: rgba(255,255,255,0.05); 
+    color: transparent; 
+    border-radius: 4px; 
+    padding: 0 5px; 
+    user-select: none;
+}
+
+/* ============================================================
+   6. FORMS & BUTTONS
+   ============================================================ */
 input {
-    width: 100%; padding: 14px; margin: 10px 0; border-radius: 12px;
-    background: rgba(15, 23, 42, 0.5); border: 1px solid var(--glass-border);
-    color: white; box-sizing: border-box;
+    width: 100%;
+    padding: 14px;
+    margin: 10px 0;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--glass-border);
+    color: white;
+    font: inherit;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--teal);
 }
 
 @keyframes glowPulse {
@@ -59,13 +184,50 @@ input {
 }
 
 .btn-primary {
-    width: 100%; padding: 16px; background: linear-gradient(135deg, var(--teal), #0e7490);
-    color: white; border: none; border-radius: 12px; font-weight: 700;
-    cursor: pointer; animation: glowPulse 2s infinite ease-in-out; margin-top: 20px;
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--teal), #0e7490);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    animation: glowPulse 2s infinite ease-in-out;
+    margin-top: 20px;
+    transition: 0.3s;
 }
 
-.stats-bar { display: flex; justify-content: space-around; align-items: center; margin-bottom: 50px; border-top: 2px solid var(--teal) !important; }
-.stat-value { font-size: 2.8rem; color: var(--gold); margin: 5px 0; font-weight: 800; }
-.blurred-info { filter: blur(8px); background: rgba(255,255,255,0.05); color: transparent; border-radius: 4px; padding: 0 5px; }
+.btn-primary:active {
+    transform: scale(0.98);
+}
 
-.main-footer { margin-top: 100px; padding: 60px 8%; background: #070b14; border-top: 1px solid var(--glass-border); text-align: left; }
+/* ============================================================
+   7. FOOTER
+   ============================================================ */
+.main-footer { 
+    margin-top: 100px; 
+    padding: 60px 5%; 
+    background: #070b14; 
+    border-top: 1px solid var(--glass-border); 
+}
+
+/* ============================================================
+   8. SPECIFIC MOBILE ADJUSTMENTS
+   ============================================================ */
+@media (max-width: 600px) {
+    nav {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+
+    .nav-links {
+        margin-left: 0;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .nav-links a {
+        margin: 0 10px;
+    }
+}
