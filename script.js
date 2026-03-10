@@ -1,4 +1,4 @@
-// Handle Donation Form with Razorpay Integration
+// Handle Donation Form with Paytm Integration
 document.getElementById('donationForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -6,55 +6,48 @@ document.getElementById('donationForm')?.addEventListener('submit', async (e) =>
         name: document.getElementById('name').value,
         aadhar: document.getElementById('aadhar').value,
         email: document.getElementById('email').value,
-        amount: document.getElementById('amount').value,
-        phone: document.getElementById('phone')?.value || 'N/A'
+        amount: document.getElementById('amount').value
     };
 
     try {
-        // Step 1: Create Order on Backend
-        const orderRes = await fetch('/create-order', {
+        // 1. Get Transaction Token from Backend
+        const res = await fetch('/api/paytm/initiate', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ amount: donorData.amount })
+            body: JSON.stringify(donorData)
         });
-        const order = await orderRes.json();
+        const data = await res.json();
 
-        // Step 2: Open Razorpay Checkout
-        const options = {
-            "key": "rzp_test_YOUR_KEY_ID", // REPLACE WITH YOUR RAZORPAY KEY ID
-            "amount": order.amount,
-            "currency": "INR",
-            "name": "Amanah Network",
-            "description": "Donation for Relief",
-            "order_id": order.id,
-            "handler": async function (response) {
-                // Step 3: Payment Success -> Finalize on Backend
-                const verifyRes = await fetch('/verify-payment', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        razorpay_payment_id: response.razorpay_payment_id,
-                        donorData: donorData
-                    })
-                });
-
-                if (verifyRes.ok) {
-                    alert("Amanah Fulfilled! Confirmation sent to: " + donorData.email);
-                    location.reload();
-                }
+        // 2. Configure Paytm JS
+        const config = {
+            "root": "",
+            "flow": "DEFAULT",
+            "data": {
+                "orderId": data.orderId,
+                "token": data.token,
+                "tokenType": "TXN_TOKEN",
+                "amount": donorData.amount
             },
-            "theme": {"color": "#f59e0b"}
+            "handler": {
+                "notifyMerchant": (eventName, data) => {
+                    console.log("Paytm Event:", eventName, data);
+                }
+            }
         };
 
-        const rzp1 = new Razorpay(options);
-        rzp1.open();
+        // 3. Open Paytm Checkout
+        if (window.Paytm && window.Paytm.CheckoutJS) {
+            window.Paytm.CheckoutJS.init(config).then(() => {
+                window.Paytm.CheckoutJS.invoke();
+            }).catch(err => console.error("CheckoutJS Error:", err));
+        }
     } catch (err) {
-        console.error("Payment failed", err);
-        alert("Transaction could not be initialized.");
+        console.error("Initiation failed", err);
+        alert("Could not connect to Paytm. Please check your internet.");
     }
 });
 
-// Load Donors & Animated Stats (Kept identical to your original)
+// Load Donors & Animated Stats (Success only)
 async function init() {
     const list = document.getElementById('donorList');
     if (!list) return;
@@ -68,14 +61,12 @@ async function init() {
 
     list.innerHTML = donors.map(d => `
         <div class="glass-card" style="padding: 25px; border-left: 4px solid var(--gold);">
-            <div style="margin-bottom:10px;">
-                <span class="blurred-info">${d.name}</span>
-            </div>
+            <div><span class="blurred-info">${d.name}</span></div>
             <div style="font-size: 1.2rem; font-weight: bold; color: var(--teal);">
                 <span class="blurred-info">₹${d.amount.toLocaleString()}</span>
             </div>
             <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 15px;">
-                ${new Date(d.date).toLocaleDateString('en-IN', {day: 'numeric', month: 'short', year: 'numeric'})}
+                ${new Date(d.date).toLocaleDateString('en-IN')}
             </div>
         </div>
     `).join('');
@@ -93,5 +84,4 @@ function animateValue(id, start, end, duration, prefix = "") {
     };
     window.requestAnimationFrame(step);
 }
-
 window.onload = init;
