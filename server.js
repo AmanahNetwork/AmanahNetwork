@@ -37,14 +37,16 @@ const transporter = nodemailer.createTransport({
 });
 
 // --- 4. PAYTM ROUTES ---
-
 // Step 1: Initiate Payment
 app.post('/api/paytm/initiate', async (req, res) => {
     try {
+        console.log("--- New Payment Request Received ---");
         const { amount, name, aadhar, email } = req.body;
         const orderId = "ORD_" + Date.now();
 
-        // Pre-save donor as pending
+        // 1. Log the incoming data to ensure frontend is sending it right
+        console.log("Data from Frontend:", { amount, name, email });
+
         await Donor.create({ name, aadhar, email, amount, orderId, status: 'Pending' });
 
         const paytmParams = {
@@ -55,7 +57,7 @@ app.post('/api/paytm/initiate', async (req, res) => {
                 "orderId": orderId,
                 "callbackUrl": process.env.PAYTM_CALLBACK_URL,
                 "txnAmount": { "value": amount.toString(), "currency": "INR" },
-                "userInfo": { "custId": email },
+                "userInfo": { "custId": email || "GUEST" },
             }
         };
 
@@ -64,27 +66,43 @@ app.post('/api/paytm/initiate', async (req, res) => {
 
         const post_data = JSON.stringify(paytmParams);
         const options = {
-            hostname: 'securegw-stage.paytm.in', // Use 'securegw.paytm.in' for production
+            hostname: 'securegw-stage.paytm.in',
             port: 443,
             path: `/theia/api/v1/initiateTransaction?mid=${process.env.PAYTM_MID}&orderId=${orderId}`,
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Content-Length': post_data.length }
         };
 
-        let response = "";
+        let responseData = "";
         const post_req = https.request(options, (post_res) => {
-            post_res.on('data', (chunk) => response += chunk);
+            post_res.on('data', (chunk) => responseData += chunk);
             post_res.on('end', () => {
-                const result = JSON.parse(response);
+                const result = JSON.parse(responseData);
+                
+                // 2. LOG THE ACTUAL RESPONSE FROM PAYTM
+                console.log("--- Paytm API Response ---");
+                console.log(JSON.stringify(result, null, 2)); 
+
+                if (result.body && result.body.resultInfo.resultStatus === 'F') {
+                    console.error("Paytm Rejected Request:", result.body.resultInfo.resultMsg);
+                }
+
                 res.json({ token: result.body.txnToken, orderId, mid: process.env.PAYTM_MID });
             });
         });
 
+        post_req.on('error', (e) => {
+            console.error("HTTPS Request Error:", e);
+        });
+
         post_req.write(post_data);
         post_req.end();
-    } catch (err) { res.status(500).send("Initiation Failed"); }
-});
 
+    } catch (err) { 
+        console.error("Server Crash Error:", err);
+        res.status(500).json({ error: "Initiation Failed" }); 
+    }
+});
 // Step 2: Handle Paytm Response
 app.post('/api/paytm/callback', async (req, res) => {
     const paytmData = req.body;
