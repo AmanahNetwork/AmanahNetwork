@@ -5,6 +5,7 @@
     "express": "^5.2.1",
     "mongoose": "^9.2.4",
     "nodemailer": "^8.0.1",
+    "paytmchecksum": "^1.5.1",
     "razorpay": "^2.9.6",
     "sqlite3": "^5.0.2"
   }
