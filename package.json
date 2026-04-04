@@ -3,6 +3,7 @@
     "body-parser": "^2.2.2",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "mongodb": "4.1",
     "mongoose": "^9.2.4",
     "nodemailer": "^8.0.1",
     "paytmchecksum": "^1.5.1",
