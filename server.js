@@ -39,101 +39,65 @@ const transporter = nodemailer.createTransport({
 // --- 4. PAYTM ROUTES ---
 
 // Step 1: Initiate Payment
-app.post('/api/paytm/initiate', async (req, res) => {
+const Razorpay = require('razorpay');
+
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+// Step 1: Create Order
+app.post('/api/paytm/initiate', async (req, res) => { // Kept same route name for your frontend
     try {
-        console.log("--- New Payment Request Received ---");
         const { amount, name, aadhar, email } = req.body;
         const orderId = "ORD_" + Date.now();
 
-        // 1. Log the incoming data to ensure frontend is sending it right
-        console.log("Data from Frontend:", { amount, name, email });
-
-        await Donor.create({ name, aadhar, email, amount, orderId, status: 'Pending' });
-
-        const paytmParams = {
-            body: {
-                "requestType": "Payment",
-                "mid": process.env.PAYTM_MID,
-                "websiteName": process.env.PAYTM_WEBSITE,
-                "orderId": orderId,
-                "callbackUrl": process.env.PAYTM_CALLBACK_URL,
-                "txnAmount": { "value": amount.toString(), "currency": "INR" },
-                "userInfo": { "custId": email || "GUEST" },
-            }
-        };
-
-        const checksum = await PaytmChecksum.generateSignature(JSON.stringify(paytmParams.body), process.env.PAYTM_MKEY);
-        paytmParams.head = { "signature": checksum };
-
-        const post_data = JSON.stringify(paytmParams);
+        // Create Razorpay Order
         const options = {
-            hostname: 'securegw-stage.paytm.in',
-            port: 443,
-            path: `/theia/api/v1/initiateTransaction?mid=${process.env.PAYTM_MID}&orderId=${orderId}`,
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Content-Length': post_data.length }
+            amount: amount * 100, // Amount in paisa
+            currency: "INR",
+            receipt: orderId,
         };
 
-        let responseData = "";
-        const post_req = https.request(options, (post_res) => {
-            post_res.on('data', (chunk) => responseData += chunk);
-            post_res.on('end', () => {
-                const result = JSON.parse(responseData);
-                
-                // 2. LOG THE ACTUAL RESPONSE FROM PAYTM
-                console.log("--- Paytm API Response ---");
-                console.log(JSON.stringify(result, null, 2)); 
+        const order = await razorpay.orders.create(options);
 
-                if (result.body && result.body.resultInfo.resultStatus === 'F') {
-                    console.error("Paytm Rejected Request:", result.body.resultInfo.resultMsg);
-                }
+        // Save to MongoDB (Pending)
+        await Donor.create({ name, aadhar, email, amount, orderId: order.id, status: 'Pending' });
 
-                res.json({ token: result.body.txnToken, orderId, mid: process.env.PAYTM_MID });
-            });
+        res.json({ 
+            key: process.env.RAZORPAY_KEY_ID, 
+            amount: order.amount, 
+            order_id: order.id 
         });
-
-        post_req.on('error', (e) => {
-            console.error("HTTPS Request Error:", e);
-        });
-
-        post_req.write(post_data);
-        post_req.end();
-
-    } catch (err) { 
-        console.error("Server Crash Error:", err);
-        res.status(500).json({ error: "Initiation Failed" }); 
+    } catch (err) {
+        console.error("Razorpay Error:", err);
+        res.status(500).json({ error: "Order Creation Failed" });
     }
 });
-// Step 2: Handle Paytm Response
+
+// Step 2: Handle Success Callback (Simplified for Test Mode)
 app.post('/api/paytm/callback', async (req, res) => {
-    const paytmData = req.body;
-    const checksum = paytmData.CHECKSUMHASH;
-    delete paytmData.CHECKSUMHASH;
+    const { razorpay_order_id, razorpay_payment_id } = req.body;
 
-    const isValid = PaytmChecksum.verifySignature(paytmData, process.env.PAYTM_MKEY, checksum);
+    const updatedDonor = await Donor.findOneAndUpdate(
+        { orderId: razorpay_order_id },
+        { status: 'Success', paymentId: razorpay_payment_id },
+        { new: true }
+    );
 
-    if (isValid && paytmData.STATUS === 'TXN_SUCCESS') {
-        const updatedDonor = await Donor.findOneAndUpdate(
-            { orderId: paytmData.ORDERID },
-            { status: 'Success', paymentId: paytmData.TXNID },
-            { new: true }
-        );
-
+    if (updatedDonor) {
         // Send Confirmation Email
         transporter.sendMail({
             from: `"AmanahNetwork" <${process.env.EMAIL_USER}>`,
             to: updatedDonor.email,
-            subject: 'Amanah Received: Success',
+            subject: 'Amanah Received',
             html: `<h2>Trust Confirmed, ${updatedDonor.name}</h2><p>₹${updatedDonor.amount} received.</p>`
         });
-
-        res.redirect('/donors.html'); // Redirect to Wall of Honor
+        res.redirect('/donors.html');
     } else {
-        await Donor.findOneAndUpdate({ orderId: paytmData.ORDERID }, { status: 'Failed' });
-        res.send("Payment Failed. Please try again.");
+        res.send("Payment verification failed.");
     }
 });
-
 // Stats API (Filtered for Success only)
 app.get('/api/stats', async (req, res) => {
     const stats = await Donor.aggregate([
