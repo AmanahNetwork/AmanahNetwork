@@ -34,14 +34,16 @@ app.use(express.static(__dirname));
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
-    secure: true, // Use SSL
+    secure: false, // Must be false for port 587
+    requireTLS: true,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
     // THIS IS THE FIX: Forces IPv4 to avoid the ENETUNREACH error
-    connectionTimeout: 10000, 
-    socketTimeout: 10000,
+    connectionTimeout: 20000, 
+    greetingTimeout: 20000,
+    socketTimeout: 25000,
     tls: {
         rejectUnauthorized: false // Helps prevent local certificate issues
     }
