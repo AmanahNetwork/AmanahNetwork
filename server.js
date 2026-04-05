@@ -84,23 +84,30 @@ app.post('/api/paytm/initiate', async (req, res) => { // Kept same route name fo
 app.post('/api/paytm/callback', async (req, res) => {
     const { razorpay_order_id, razorpay_payment_id } = req.body;
 
-    const updatedDonor = await Donor.findOneAndUpdate(
-        { orderId: razorpay_order_id },
-        { status: 'Success', paymentId: razorpay_payment_id },
-        { new: true }
-    );
+    try {
+        const updatedDonor = await Donor.findOneAndUpdate(
+            { orderId: razorpay_order_id }, 
+            { status: 'Success', paymentId: razorpay_payment_id },
+            { new: true }
+        );
 
-    if (updatedDonor) {
-        // Send Confirmation Email
-        transporter.sendMail({
-            from: `"AmanahNetwork" <${process.env.EMAIL_USER}>`,
-            to: updatedDonor.email,
-            subject: 'Amanah Received',
-            html: `<h2>Trust Confirmed, ${updatedDonor.name}</h2><p>₹${updatedDonor.amount} received.</p>`
-        });
-        res.redirect('/donors.html');
-    } else {
-        res.send("Payment verification failed.");
+        if (updatedDonor) {
+            // This 'await' is critical to ensure the email sends
+            await transporter.sendMail({
+                from: `"AmanahNetwork" <${process.env.EMAIL_USER}>`,
+                to: updatedDonor.email,
+                subject: 'Amanah Received',
+                text: `Thank you ${updatedDonor.name}. We received ₹${updatedDonor.amount}.`
+            });
+            console.log("Email sent to:", updatedDonor.email);
+            return res.json({ status: 'ok' });
+        } else {
+            console.log("No donor found for ID:", razorpay_order_id);
+            return res.status(404).json({ error: "Order not found" });
+        }
+    } catch (err) {
+        console.error("Email/DB Error:", err);
+        res.status(500).json({ error: "Internal Error" });
     }
 });
 // Stats API (Filtered for Success only)
