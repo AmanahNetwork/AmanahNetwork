@@ -1,9 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const nodemailer = require('nodemailer');
-const PaytmChecksum = require('paytmchecksum');
-const https = require('https');
+const Razorpay = require('razorpay');
+const SibApiV3Sdk = require('@getbrevo/brevo'); // Import Brevo
 const path = require('path');
 
 const app = express();
@@ -27,52 +26,36 @@ const Donor = mongoose.model('Donor', donorSchema);
 
 // --- 2. MIDDLEWARE ---
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Required for Paytm Callback
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// --- 3. EMAIL SETUP ---
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Must be false for port 587
-    requireTLS: true,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    // THIS IS THE FIX: Forces IPv4 to avoid the ENETUNREACH error
-    connectionTimeout: 30000, 
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
-   debug: true, // This will print more info to your Render logs
-    logger: true
-});
-// --- 4. PAYTM ROUTES ---
+// --- 3. BREVO API SETUP ---
+const defaultClient = SibApiV3Sdk.ApiClient.instance;
+const apiKey = defaultClient.authentications['api-key'];
+apiKey.apiKey = process.env.BREVO_API_KEY; // Use your API Key from Render Env
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
-// Step 1: Initiate Payment
-const Razorpay = require('razorpay');
-
+// --- 4. RAZORPAY SETUP ---
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Step 1: Create Order
-app.post('/api/paytm/initiate', async (req, res) => { // Kept same route name for your frontend
+// --- 5. ROUTES ---
+
+// Step 1: Initiate Payment
+app.post('/api/paytm/initiate', async (req, res) => {
     try {
         const { amount, name, aadhar, email } = req.body;
-        const orderId = "ORD_" + Date.now();
-
-        // Create Razorpay Order
         const options = {
-            amount: amount * 100, // Amount in paisa
+            amount: amount * 100, 
             currency: "INR",
-            receipt: orderId,
+            receipt: "ORD_" + Date.now(),
         };
 
         const order = await razorpay.orders.create(options);
 
-        // Save to MongoDB (Pending)
+        // Save to MongoDB
         await Donor.create({ name, aadhar, email, amount, orderId: order.id, status: 'Pending' });
 
         res.json({ 
@@ -86,47 +69,51 @@ app.post('/api/paytm/initiate', async (req, res) => { // Kept same route name fo
     }
 });
 
-// Step 2: Handle Success Callback (Simplified for Test Mode)
+// Step 2: Handle Callback & Send Email
 app.post('/api/paytm/callback', async (req, res) => {
     const { razorpay_order_id, razorpay_payment_id } = req.body;
 
     try {
         const updatedDonor = await Donor.findOneAndUpdate(
-    { orderId: razorpay_order_id }, 
-    { status: 'Success', paymentId: razorpay_payment_id },
-    { returnDocument: 'after' } // Updated from 'new: true'
-);
+            { orderId: razorpay_order_id }, 
+            { status: 'Success', paymentId: razorpay_payment_id },
+            { returnDocument: 'after' }
+        );
 
         if (updatedDonor) {
-            console.log("Found Donor, sending email to:", updatedDonor.email);
+            console.log("Payment Success. Sending Professional Email via Brevo API...");
 
-            // CRITICAL: Use await here so the server doesn't close the connection too early
-            await transporter.sendMail({
-                from: `"AmanahNetwork" <${process.env.EMAIL_USER}>`,
-                to: updatedDonor.email, 
-                subject: 'Amanah Received - Confirmation',
-                html: `
-                    <div style="font-family: sans-serif; border: 1px solid #eee; padding: 20px;">
-                        <h2 style="color: #008080;">Trust Confirmed, ${updatedDonor.name}</h2>
-                        <p>We have successfully received your contribution of <b>₹${updatedDonor.amount}</b>.</p>
-                        <p>Order ID: ${updatedDonor.orderId}</p>
-                        <hr>
-                        <p style="font-size: 0.8rem; color: #666;">AmanahNetwork - Secure Trust Management</p>
-                    </div>
-                `
-            });
+            // Define Transactional Email
+            const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+            sendSmtpEmail.subject = "Amanah Received - Confirmation";
+            sendSmtpEmail.sender = { "name": "AmanahNetwork", "email": process.env.EMAIL_USER };
+            sendSmtpEmail.to = [{ "email": updatedDonor.email, "name": updatedDonor.name }];
+            sendSmtpEmail.htmlContent = `
+                <div style="font-family: sans-serif; border: 1px solid #eee; padding: 20px; max-width: 600px;">
+                    <h2 style="color: #008080;">Trust Confirmed, ${updatedDonor.name}</h2>
+                    <p>We have successfully received your contribution of <b>₹${updatedDonor.amount}</b>.</p>
+                    <p><b>Order ID:</b> ${updatedDonor.orderId}<br>
+                    <b>Payment ID:</b> ${updatedDonor.paymentId}</p>
+                    <hr>
+                    <p style="font-size: 0.8rem; color: #666;">This is an automated receipt from AmanahNetwork.</p>
+                </div>`;
 
-            console.log("Email Sent Successfully!");
+            // Trigger the API Call
+            await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+            console.log("Email Sent Successfully via API!");
             return res.json({ status: 'success' });
         } else {
             return res.status(404).json({ error: "Donor not found" });
         }
     } catch (err) {
-        console.error("Callback/Email Error:", err);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error("Callback/API Email Error:", err);
+        // We still return success to the frontend because the payment WAS successful in DB
+        res.status(200).json({ status: 'success', email_error: "API failed" });
     }
 });
-// Stats API (Filtered for Success only)
+
+// Stats and Lists
 app.get('/api/stats', async (req, res) => {
     const stats = await Donor.aggregate([
         { $match: { status: 'Success' } },
@@ -140,4 +127,4 @@ app.get('/api/donors', async (req, res) => {
     res.json(donors);
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Amanah Live with Paytm"));
+app.listen(process.env.PORT || 3000, () => console.log("Amanah Live with Razorpay & Brevo API"));
