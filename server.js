@@ -92,22 +92,32 @@ app.post('/api/paytm/callback', async (req, res) => {
         );
 
         if (updatedDonor) {
-            // This 'await' is critical to ensure the email sends
+            console.log("Found Donor, sending email to:", updatedDonor.email);
+
+            // CRITICAL: Use await here so the server doesn't close the connection too early
             await transporter.sendMail({
                 from: `"AmanahNetwork" <${process.env.EMAIL_USER}>`,
-                to: updatedDonor.email,
-                subject: 'Amanah Received',
-                text: `Thank you ${updatedDonor.name}. We received ₹${updatedDonor.amount}.`
+                to: updatedDonor.email, 
+                subject: 'Amanah Received - Confirmation',
+                html: `
+                    <div style="font-family: sans-serif; border: 1px solid #eee; padding: 20px;">
+                        <h2 style="color: #008080;">Trust Confirmed, ${updatedDonor.name}</h2>
+                        <p>We have successfully received your contribution of <b>₹${updatedDonor.amount}</b>.</p>
+                        <p>Order ID: ${updatedDonor.orderId}</p>
+                        <hr>
+                        <p style="font-size: 0.8rem; color: #666;">AmanahNetwork - Secure Trust Management</p>
+                    </div>
+                `
             });
-            console.log("Email sent to:", updatedDonor.email);
-            return res.json({ status: 'ok' });
+
+            console.log("Email Sent Successfully!");
+            return res.json({ status: 'success' });
         } else {
-            console.log("No donor found for ID:", razorpay_order_id);
-            return res.status(404).json({ error: "Order not found" });
+            return res.status(404).json({ error: "Donor not found" });
         }
     } catch (err) {
-        console.error("Email/DB Error:", err);
-        res.status(500).json({ error: "Internal Error" });
+        console.error("Callback/Email Error:", err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 // Stats API (Filtered for Success only)
