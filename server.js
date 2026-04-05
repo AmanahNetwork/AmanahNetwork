@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const Razorpay = require('razorpay');
-const SibApiV3Sdk = require('@getbrevo/brevo'); // Import Brevo
+const SibApiV3Sdk = require('@getbrevo/brevo');
 const path = require('path');
 
 const app = express();
@@ -29,11 +29,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// --- 3. BREVO API SETUP ---
-const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications['api-key'];
-apiKey.apiKey = process.env.BREVO_API_KEY; // Use your API Key from Render Env
+// --- 3. BREVO API SETUP (FIXED VERSION) ---
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+// Correct way to set API Key in @getbrevo/brevo v2.x+
+apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
 
 // --- 4. RAZORPAY SETUP ---
 const razorpay = new Razorpay({
@@ -43,7 +42,6 @@ const razorpay = new Razorpay({
 
 // --- 5. ROUTES ---
 
-// Step 1: Initiate Payment
 app.post('/api/paytm/initiate', async (req, res) => {
     try {
         const { amount, name, aadhar, email } = req.body;
@@ -52,12 +50,8 @@ app.post('/api/paytm/initiate', async (req, res) => {
             currency: "INR",
             receipt: "ORD_" + Date.now(),
         };
-
         const order = await razorpay.orders.create(options);
-
-        // Save to MongoDB
         await Donor.create({ name, aadhar, email, amount, orderId: order.id, status: 'Pending' });
-
         res.json({ 
             key: process.env.RAZORPAY_KEY_ID, 
             amount: order.amount, 
@@ -69,10 +63,8 @@ app.post('/api/paytm/initiate', async (req, res) => {
     }
 });
 
-// Step 2: Handle Callback & Send Email
 app.post('/api/paytm/callback', async (req, res) => {
     const { razorpay_order_id, razorpay_payment_id } = req.body;
-
     try {
         const updatedDonor = await Donor.findOneAndUpdate(
             { orderId: razorpay_order_id }, 
@@ -81,9 +73,8 @@ app.post('/api/paytm/callback', async (req, res) => {
         );
 
         if (updatedDonor) {
-            console.log("Payment Success. Sending Professional Email via Brevo API...");
+            console.log("Payment Success. Sending Email via Brevo API...");
 
-            // Define Transactional Email
             const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
             sendSmtpEmail.subject = "Amanah Received - Confirmation";
             sendSmtpEmail.sender = { "name": "AmanahNetwork", "email": process.env.EMAIL_USER };
@@ -98,22 +89,24 @@ app.post('/api/paytm/callback', async (req, res) => {
                     <p style="font-size: 0.8rem; color: #666;">This is an automated receipt from AmanahNetwork.</p>
                 </div>`;
 
-            // Trigger the API Call
-            await apiInstance.sendTransacEmail(sendSmtpEmail);
-
-            console.log("Email Sent Successfully via API!");
-            return res.json({ status: 'success' });
+            try {
+                await apiInstance.sendTransacEmail(sendSmtpEmail);
+                console.log("Email Sent Successfully via API!");
+                return res.json({ status: 'success' });
+            } catch (apiError) {
+                console.error("Brevo API Error:", apiError.response ? apiError.response.body : apiError);
+                return res.json({ status: 'success', note: 'Email delayed' });
+            }
         } else {
             return res.status(404).json({ error: "Donor not found" });
         }
     } catch (err) {
-        console.error("Callback/API Email Error:", err);
-        // We still return success to the frontend because the payment WAS successful in DB
-        res.status(200).json({ status: 'success', email_error: "API failed" });
+        console.error("Callback Error:", err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-// Stats and Lists
+// --- STATS & DONORS ---
 app.get('/api/stats', async (req, res) => {
     const stats = await Donor.aggregate([
         { $match: { status: 'Success' } },
