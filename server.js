@@ -33,7 +33,7 @@ app.use(express.static(__dirname));
 // --- 3. EMAIL SETUP ---
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
+    port: 587,
     secure: false, // Must be false for port 587
     requireTLS: true,
     auth: {
@@ -41,12 +41,11 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS
     },
     // THIS IS THE FIX: Forces IPv4 to avoid the ENETUNREACH error
-    connectionTimeout: 20000, 
-    greetingTimeout: 20000,
-    socketTimeout: 25000,
-    tls: {
-        rejectUnauthorized: false // Helps prevent local certificate issues
-    }
+    connectionTimeout: 30000, 
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
+   debug: true, // This will print more info to your Render logs
+    logger: true
 });
 // --- 4. PAYTM ROUTES ---
 
