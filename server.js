@@ -32,15 +32,20 @@ app.use(express.static(__dirname));
 
 // --- 3. EMAIL SETUP ---
 const transporter = nodemailer.createTransport({
-   host: 'smtp.gmail.com',
+    host: 'smtp.gmail.com',
     port: 465,
-    secure: true, // use SSL
+    secure: true, // Use SSL
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
+    },
+    // THIS IS THE FIX: Forces IPv4 to avoid the ENETUNREACH error
+    connectionTimeout: 10000, 
+    socketTimeout: 10000,
+    tls: {
+        rejectUnauthorized: false // Helps prevent local certificate issues
     }
 });
-
 // --- 4. PAYTM ROUTES ---
 
 // Step 1: Initiate Payment
@@ -86,10 +91,10 @@ app.post('/api/paytm/callback', async (req, res) => {
 
     try {
         const updatedDonor = await Donor.findOneAndUpdate(
-            { orderId: razorpay_order_id }, 
-            { status: 'Success', paymentId: razorpay_payment_id },
-            { new: true }
-        );
+    { orderId: razorpay_order_id }, 
+    { status: 'Success', paymentId: razorpay_payment_id },
+    { returnDocument: 'after' } // Updated from 'new: true'
+);
 
         if (updatedDonor) {
             console.log("Found Donor, sending email to:", updatedDonor.email);
