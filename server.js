@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const Razorpay = require('razorpay');
-const SibApiV3Sdk = require('@getbrevo/brevo');
+const nodemailer = require('nodemailer');
 const path = require('path');
 
 const app = express();
@@ -29,10 +29,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// --- 3. BREVO API SETUP (FIXED VERSION) ---
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-// Correct way to set API Key in @getbrevo/brevo v2.x+
-apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+// --- 3. GMAIL NODEMAILER SETUP ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS // 16-character App Password (NO SPACES)
+    },
+    // Adding extra timeout for Render's network latency
+    connectionTimeout: 10000, 
+    socketTimeout: 10000
+});
+
+// Verify connection configuration
+transporter.verify((error, success) => {
+    if (error) {
+        console.log("Email Config Error:", error);
+    } else {
+        console.log("Gmail Server is ready to send messages");
+    }
+});
 
 // --- 4. RAZORPAY SETUP ---
 const razorpay = new Razorpay({
@@ -73,29 +89,32 @@ app.post('/api/paytm/callback', async (req, res) => {
         );
 
         if (updatedDonor) {
-            console.log("Payment Success. Sending Email via Brevo API...");
+            console.log("Payment Success. Sending Gmail to:", updatedDonor.email);
 
-            const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-            sendSmtpEmail.subject = "Amanah Received - Confirmation";
-            sendSmtpEmail.sender = { "name": "AmanahNetwork", "email": process.env.EMAIL_USER };
-            sendSmtpEmail.to = [{ "email": updatedDonor.email, "name": updatedDonor.name }];
-            sendSmtpEmail.htmlContent = `
-                <div style="font-family: sans-serif; border: 1px solid #eee; padding: 20px; max-width: 600px;">
-                    <h2 style="color: #008080;">Trust Confirmed, ${updatedDonor.name}</h2>
-                    <p>We have successfully received your contribution of <b>₹${updatedDonor.amount}</b>.</p>
-                    <p><b>Order ID:</b> ${updatedDonor.orderId}<br>
-                    <b>Payment ID:</b> ${updatedDonor.paymentId}</p>
-                    <hr>
-                    <p style="font-size: 0.8rem; color: #666;">This is an automated receipt from AmanahNetwork.</p>
-                </div>`;
+            const mailOptions = {
+                from: `"AmanahNetwork" <${process.env.EMAIL_USER}>`,
+                to: updatedDonor.email,
+                subject: 'Amanah Received - Confirmation',
+                html: `
+                    <div style="font-family: sans-serif; border: 1px solid #eee; padding: 20px; max-width: 600px;">
+                        <h2 style="color: #008080;">Trust Confirmed, ${updatedDonor.name}</h2>
+                        <p>We have successfully received your contribution of <b>₹${updatedDonor.amount}</b>.</p>
+                        <p><b>Order ID:</b> ${updatedDonor.orderId}<br>
+                        <b>Payment ID:</b> ${updatedDonor.paymentId}</p>
+                        <hr>
+                        <p style="font-size: 0.8rem; color: #666;">AmanahNetwork - Secure Trust Management</p>
+                    </div>`
+            };
 
+            // Using async/await for Nodemailer
             try {
-                await apiInstance.sendTransacEmail(sendSmtpEmail);
-                console.log("Email Sent Successfully via API!");
+                await transporter.sendMail(mailOptions);
+                console.log("Email Sent Successfully!");
                 return res.json({ status: 'success' });
-            } catch (apiError) {
-                console.error("Brevo API Error:", apiError.response ? apiError.response.body : apiError);
-                return res.json({ status: 'success', note: 'Email delayed' });
+            } catch (mailError) {
+                console.error("Nodemailer Error:", mailError);
+                // Return success anyway so the UI updates, as payment was successful
+                return res.json({ status: 'success', note: 'Email failed' });
             }
         } else {
             return res.status(404).json({ error: "Donor not found" });
@@ -108,16 +127,24 @@ app.post('/api/paytm/callback', async (req, res) => {
 
 // --- STATS & DONORS ---
 app.get('/api/stats', async (req, res) => {
-    const stats = await Donor.aggregate([
-        { $match: { status: 'Success' } },
-        { $group: { _id: null, total_donors: { $sum: 1 }, total_amount: { $sum: "$amount" } } }
-    ]);
-    res.json(stats[0] || { total_donors: 0, total_amount: 0 });
+    try {
+        const stats = await Donor.aggregate([
+            { $match: { status: 'Success' } },
+            { $group: { _id: null, total_donors: { $sum: 1 }, total_amount: { $sum: "$amount" } } }
+        ]);
+        res.json(stats[0] || { total_donors: 0, total_amount: 0 });
+    } catch (err) {
+        res.status(500).json({ error: "Stats failed" });
+    }
 });
 
 app.get('/api/donors', async (req, res) => {
-    const donors = await Donor.find({ status: 'Success' }).sort({ date: -1 }).limit(10);
-    res.json(donors);
+    try {
+        const donors = await Donor.find({ status: 'Success' }).sort({ date: -1 }).limit(10);
+        res.json(donors);
+    } catch (err) {
+        res.status(500).json({ error: "Donor list failed" });
+    }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Amanah Live with Razorpay & Brevo API"));
+app.listen(process.env.PORT || 3000, () => console.log("Amanah Live with Razorpay & Gmail"));
