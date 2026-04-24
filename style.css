@@ -16,218 +16,151 @@
     --text-dim: #94a3b8;
     --glass-border: rgba(255, 255, 255, 0.1);
     --container-width: 90%;
-    --max-width: 1200px;
+    --max-width: 1100px; /* Slightly tighter for better readability */
 }
 
 html {
     font-size: 100%; 
     scroll-behavior: smooth;
-    -webkit-text-size-adjust: 100%;
 }
 
 body {
     font-family: 'Inter', sans-serif;
     line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
     background: radial-gradient(circle at top right, #1e293b, #0f172a);
     color: var(--text-main);
     min-height: 100vh;
-    width: 100%;
-    overflow-x: hidden; /* Prevents mobile side-scrolling */
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
 }
 
 /* ============================================================
-   2. GLOBAL LAYOUT COMPONENTS
+   2. PERFECT CENTERING SYSTEM
    ============================================================ */
-.container, .main-content {
+.main-wrapper {
+    flex: 1; /* Pushes footer to bottom */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Keeps content top-aligned but centered */
+    padding: 60px 0;
+    width: 100%;
+}
+
+.content-container {
     width: var(--container-width);
     max-width: var(--max-width);
     margin: 0 auto;
-}
-
-/* SMART MEDIA HANDLING */
-img, video, svg {
-    display: block;
-    max-width: 100%;
-    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
 }
 
 /* ============================================================
-   3. NAVIGATION (STICKY & RESPONSIVE)
+   3. NAVIGATION (RESPONSIVE)
    ============================================================ */
 nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 5%; /* Adjusted for better mobile spacing */
-    background: rgba(15, 23, 42, 0.9);
-    backdrop-filter: blur(10px);
+    padding: 1rem 5%;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--glass-border);
     position: sticky;
     top: 0;
     z-index: 1000;
 }
 
-.logo-container { 
-    min-width: fit-content; 
-}
-
-.nav-links {
-    display: flex;
-    align-items: center;
-}
-
 .nav-links a {
     text-decoration: none;
     color: var(--text-dim);
-    margin-left: 20px;
+    margin-left: 25px;
     font-weight: 600;
     transition: 0.3s;
-    font-size: clamp(0.9rem, 1.5vw, 1rem); /* Fluid font size */
+    font-size: 0.95rem;
 }
 
-.nav-links a:hover, .nav-links a.active { 
-    color: var(--gold); 
-}
+.nav-links a:hover, .nav-links a.active { color: var(--gold); }
 
 /* ============================================================
-   4. GLASS-MORPHISM COMPONENTS
+   4. PAGE-SPECIFIC ALIGNMENT (Donors, Legal, About)
+   ============================================================ */
+
+/* FOR LEGAL & ABOUT: Ensures text doesn't stretch too wide */
+.prose-content {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.prose-content h1, .prose-content h2 {
+    color: var(--gold);
+    margin-bottom: 1.5rem;
+}
+
+/* FOR DONORS PAGE: Responsive Table wrapper */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto; /* Allows horizontal swipe on mobile */
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 500px; /* Prevents squishing on mobile */
+}
+
+th, td {
+    padding: 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+th { color: var(--teal); font-weight: 700; }
+
+/* ============================================================
+   5. GLASS CARD & GRID
    ============================================================ */
 .glass-card {
     background: var(--bg-card);
     backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
-    padding: clamp(20px, 5vw, 40px); /* Padding shrinks on mobile */
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
-    width: 100%;
+    padding: clamp(20px, 5vw, 50px);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
 }
 
 .section-grid {
     display: grid;
-    /* This automatically stacks cards on mobile and grids them on desktop */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 30px;
-    margin-top: 40px;
-}
-
-.feature-box {
-    background: rgba(255, 255, 255, 0.03);
-    padding: 30px;
-    border-radius: 18px;
-    border: 1px solid var(--glass-border);
-    transition: transform 0.3s ease;
-}
-
-.feature-box:hover {
-    transform: translateY(-5px);
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
 }
 
 /* ============================================================
-   5. STATS & INTERACTIVE ELEMENTS
+   6. MOBILE OVERRIDES
    ============================================================ */
-.stats-bar { 
-    display: flex; 
-    flex-wrap: wrap; /* Allows wrapping on small screens */
-    justify-content: space-around; 
-    align-items: center; 
-    margin-bottom: 50px; 
-    padding: 20px 0;
-    border-top: 2px solid var(--teal) !important; 
-}
-
-.stat-item {
-    text-align: center;
-    padding: 10px;
-    flex: 1 1 200px; /* Base size of 200px, but grows/shrinks */
-}
-
-.stat-value { 
-    font-size: clamp(1.8rem, 5vw, 2.8rem); /* Massive on desktop, readable on mobile */
-    color: var(--gold); 
-    margin: 5px 0; 
-    font-weight: 800; 
-}
-
-.blurred-info { 
-    filter: blur(8px); 
-    background: rgba(255,255,255,0.05); 
-    color: transparent; 
-    border-radius: 4px; 
-    padding: 0 5px; 
-    user-select: none;
-}
-
-/* ============================================================
-   6. FORMS & BUTTONS
-   ============================================================ */
-input {
-    width: 100%;
-    padding: 14px;
-    margin: 10px 0;
-    border-radius: 12px;
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid var(--glass-border);
-    color: white;
-    font: inherit;
-}
-
-input:focus {
-    outline: none;
-    border-color: var(--teal);
-}
-
-@keyframes glowPulse {
-    0% { box-shadow: 0 0 5px var(--teal); transform: scale(1); }
-    50% { box-shadow: 0 0 20px var(--teal); transform: scale(1.02); }
-    100% { box-shadow: 0 0 5px var(--teal); transform: scale(1); }
-}
-
-.btn-primary {
-    width: 100%;
-    padding: 16px;
-    background: linear-gradient(135deg, var(--teal), #0e7490);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    animation: glowPulse 2s infinite ease-in-out;
-    margin-top: 20px;
-    transition: 0.3s;
-}
-
-.btn-primary:active {
-    transform: scale(0.98);
-}
-
-/* ============================================================
-   7. FOOTER
-   ============================================================ */
-.main-footer { 
-    margin-top: 100px; 
-    padding: 60px 5%; 
-    background: #070b14; 
-    border-top: 1px solid var(--glass-border); 
-}
-
-/* ============================================================
-   8. SPECIFIC MOBILE ADJUSTMENTS
-   ============================================================ */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     nav {
         flex-direction: column;
-        gap: 15px;
-        text-align: center;
+        padding: 15px;
     }
 
     .nav-links {
-        margin-left: 0;
-        justify-content: center;
+        margin-top: 15px;
         width: 100%;
+        justify-content: space-around;
     }
 
-    .nav-links a {
-        margin: 0 10px;
+    .nav-links a { margin: 0; }
+
+    .main-wrapper { padding: 30px 0; }
+    
+    /* Stats bar fix for mobile */
+    .stats-bar {
+        flex-direction: column;
+        gap: 20px;
     }
 }
